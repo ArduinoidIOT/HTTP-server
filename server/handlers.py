@@ -79,17 +79,10 @@ class BaseHandler:
         try:
             self.dumped = True
             print(self.socket)
-            self.socket.send(b"HTTP/1.1 ")
-            self.socket.send(str(self.code).encode())
-            self.socket.send(b' ')
-            self.socket.send(http_codes[self.code].encode())
-            self.socket.send(b'\r\n')
+            self.socket.send(b"HTTP/1.1 " + str(self.code).encode() + b' ' + http_codes[self.code].encode() + b'\r\n')
             for header, values in self.headers.items():
                 for value in values:
-                    self.socket.send(header.encode())
-                    self.socket.send(b": ")
-                    self.socket.send(value.encode())
-                    self.socket.send(b'\r\n')
+                    self.socket.send(header.encode() + b": " + value.encode() + b'\r\n')
             self.socket.send(b'\r\n')
             self.send_data()
             if close:
