@@ -4,6 +4,7 @@ from types import SimpleNamespace
 import handlers
 from HTTPRequestParser import Request
 import re
+from _default_handlers import *
 
 
 class Server:
@@ -28,6 +29,11 @@ class Server:
         self.websockets = {}
         self.conndata = {}
         self.settings = settings
+        self.handlers = {
+            500: DFL_500_Handler,
+            404: DFL_404_Handler,
+            501: DFL_501_Handler
+        }
         self.requests_to_be_removed = []
         self.deferred_to_be_removed = []
 
@@ -77,22 +83,33 @@ class Server:
 
     def _handle_request(self, sock: socket, request: Request):
         for url in self.urls:
-            if not url.match(request.path):
-                continue
-            handler_args = self.urls[url]
-            handler = handler_args[0](request, sock, handler_args[1])
-            handler.preprocess()
-            if not handler.defer_condition():
-                handler.postprocess()
-                handler.dump_response()
-                if hasattr(handler, 'websocket'):
-                    self.websockets[sock] = handler
-                else:
-                    handler.cleanup()
-                    sock.close()
+            if url.match(request.path):
+                handler_args = self.urls[url]
+                try:
+                    handler = handler_args[0](request, sock, handler_args[1])
+                    self._handler_execute(handler, sock, request)
+                except NotImplementedError:
+                    self._handler_execute(self.handlers[501](request=request, sock=sock), sock, request)
+                except:
+                    self._handler_execute(self.handlers[500](request=request, sock=sock), sock, request)
+                break
+        else:
+            self._handler_execute(self.handlers[404](request=request, sock=sock), sock, request)
+
+    def _handler_execute(self, handler, sock, request):
+        handler.preprocess()
+        if not handler.defer_condition():
+            handler.postprocess()
+            handler.dump_response()
+            if hasattr(handler, 'websocket'):
+                self.websockets[sock] = handler
             else:
-                self.deferred.append(request)
-            self.requests_to_be_removed.append(sock)
+                handler.cleanup()
+                print(request.method, request.path, request.addr, handler.code)
+                sock.close()
+        else:
+            self.deferred.append(request)
+        self.requests_to_be_removed.append(sock)
 
     def run(self):
         while True:

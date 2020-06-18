@@ -78,6 +78,7 @@ class BaseHandler:
         """ WARNING: DO NOT OVERRIDE """
         try:
             self.dumped = True
+            print(self.socket)
             self.socket.send(b"HTTP/1.1 ")
             self.socket.send(str(self.code).encode())
             self.socket.send(b' ')
